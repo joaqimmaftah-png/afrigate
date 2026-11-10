@@ -5,12 +5,13 @@ import { useServices } from '../../contexts/ServicesContext';
 import { ServiceIcon, Skeleton, Alert } from '../../components/ui';
 
 export default function Services() {
-  const { services, loading, error } = useServices();
+  const { services, loading, error, reload } = useServices();
   return (
     <>
       <PageHero eyebrow="Our Services" title="Our Professional Services" text="Four focused areas of expertise supporting businesses that trade, comply and grow in Tanzania." />
       <section className="mx-auto max-w-7xl space-y-6 px-4 py-14 sm:px-6">
-        {error && <Alert>{error}</Alert>}
+        {error && <div><Alert>{error}</Alert><button type="button" onClick={reload} className="btn btn-ghost mt-2">Try again</button></div>}
+        {!loading && !error && services.length === 0 && <p className="text-muted">Our service catalog is being updated. Please contact us for assistance.</p>}
         {loading && [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-48" />)}
         {services.map((s, i) => (
           <article key={s.id} className="card grid gap-6 overflow-hidden p-6 sm:p-8 md:grid-cols-[auto_1fr_auto] md:items-center">

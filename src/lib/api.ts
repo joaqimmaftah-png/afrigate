@@ -15,7 +15,10 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
   } catch {
     throw new Error('Network error — please check your connection and try again.');
   }
-  const data = await res.json().catch(() => ({}));
+  if (!(res.headers.get('content-type') || '').includes('application/json')) {
+    throw new Error('The API returned an unexpected response. Please try again or contact Afrigate.');
+  }
+  const data = await res.json();
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data as T;
 }

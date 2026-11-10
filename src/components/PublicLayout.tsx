@@ -25,7 +25,7 @@ const NAV = [
 ];
 
 export default function PublicLayout() {
-  const { services } = useServices();
+  const { services, loading: servicesLoading, error: servicesError, reload: reloadServices } = useServices();
   const { user, profile } = useAuth();
   const [mobile, setMobile] = useState(false);
   const [dd, setDd] = useState(false);
@@ -61,6 +61,9 @@ export default function PublicLayout() {
                 </NavLink>
                 {dd && (
                   <div className="absolute left-0 top-full z-50 w-80 rounded-xl border border-line bg-white p-2 shadow-2xl">
+                    {servicesLoading && <p className="p-3 text-sm text-muted" role="status">Loading services…</p>}
+                    {servicesError && <div className="p-3 text-sm text-muted" role="status">Services are temporarily unavailable.<button type="button" onClick={reloadServices} className="mt-2 block font-semibold text-navy">Try again</button></div>}
+                    {!servicesLoading && !servicesError && services.length === 0 && <p className="p-3 text-sm text-muted">Service catalog is being updated.</p>}
                     {services.map((s) => (
                       <Link key={s.id} to={`/services/${s.slug}`} className="flex gap-3 rounded-lg p-3 hover:bg-canvas">
                         <span className="text-navy"><ServiceIcon icon={s.icon} className="h-5 w-5" /></span>
@@ -93,6 +96,9 @@ export default function PublicLayout() {
                 <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `block rounded-lg px-4 py-3 font-medium ${isActive ? 'bg-gold text-navy-deep' : 'text-white hover:bg-white/10'}`}>{n.label}</NavLink>
               ))}
               <div className="pl-4">
+                {servicesLoading && <p className="px-4 py-2 text-sm text-white/70" role="status">Loading services…</p>}
+                {servicesError && <button type="button" onClick={reloadServices} className="px-4 py-2 text-sm text-white/70">Unable to load services. Try again</button>}
+                {!servicesLoading && !servicesError && services.length === 0 && <p className="px-4 py-2 text-sm text-white/70">Service catalog is being updated.</p>}
                 {services.map((s) => (
                   <Link key={s.id} to={`/services/${s.slug}`} className="block px-4 py-2 text-sm text-white/70 hover:text-gold">{s.title}</Link>
                 ))}

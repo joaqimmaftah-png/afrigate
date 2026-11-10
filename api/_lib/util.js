@@ -1,4 +1,4 @@
-import supabase from '../db-client.js';
+import supabase from './db-client.js';
 
 export const STATUSES = [
   'Submitted',
@@ -34,8 +34,8 @@ export function cors(req, res) {
 
 export function handleError(res, err) {
   const status = err.status || 500;
-  if (status >= 500) console.error('API error:', err);
-  res.status(status).json({ error: err.message || 'Unexpected error' });
+  if (status >= 500) console.error('API request failed', { status, code: err.code || 'internal_error' });
+  res.status(status).json({ error: status >= 500 ? 'The service is temporarily unavailable. Please try again later.' : err.message });
 }
 
 export function body(req) {
@@ -65,7 +65,8 @@ export async function getAuth(req, { optional = false } = {}) {
     if (optional) return null;
     throw new HttpError(401, 'Your session has expired. Please sign in again.');
   }
-  let { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  let { data: profile, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  if (profileError) throw profileError;
   if (!profile) {
     const meta = user.user_metadata || {};
     const { data: created, error: insErr } = await supabase

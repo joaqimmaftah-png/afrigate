@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Handshake, ShieldCheck, Scale, Globe2, Users, FileSignature, Search, MessagesSquare, BadgeCheck, Mail, Phone, MapPin, Quote, TrendingUp } from 'lucide-react';
 import { useServices } from '../../contexts/ServicesContext';
-import { ServiceIcon, Skeleton } from '../../components/ui';
+import { ServiceIcon, Skeleton, Alert } from '../../components/ui';
 import { WhatsAppIcon } from '../../components/PublicLayout';
 import { CONTACT, waLink } from '../../lib/constants';
 import { api } from '../../lib/api';
@@ -23,7 +23,7 @@ const STEPS = [
 ];
 
 export default function Home() {
-  const { services, loading } = useServices();
+  const { services, loading, error, reload } = useServices();
   const [testimonials, setTestimonials] = useState<{ id: number; name: string; company: string | null; quote: string }[]>([]);
   useEffect(() => { api('/api/public?action=testimonials').then(setTestimonials).catch(() => setTestimonials([])); }, []);
 
@@ -60,6 +60,8 @@ export default function Home() {
         <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
           <div>
             <div className="mb-8 text-center"><h2 className="gold-rule font-display text-2xl font-bold text-navy sm:text-3xl">Our Professional Services</h2></div>
+            {error && <div className="mb-4" role="status"><Alert>Services could not be loaded. {error}</Alert><button type="button" className="btn btn-ghost mt-2" onClick={reload}>Try again</button></div>}
+            {!loading && !error && services.length === 0 && <p className="mb-4 text-center text-muted">Our service catalog is being updated. Please contact us for assistance.</p>}
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {loading && [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-56" />)}
               {services.map((s, i) => (

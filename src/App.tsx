@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Link, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ServicesProvider } from './contexts/ServicesContext';
-import { handleGoogleRedirect } from './lib/googleAuth';
 import PublicLayout from './components/PublicLayout';
 import PortalLayout from './components/PortalLayout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -32,7 +31,7 @@ import Enquiries from './pages/staff/Enquiries';
 import Reports from './pages/staff/Reports';
 import Audit from './pages/staff/Audit';
 
-handleGoogleRedirect();
+
 
 function WorkspaceRoute({ mode }: { mode: 'customer' | 'staff' }) {
   const { id } = useParams();

@@ -81,7 +81,7 @@ export default function Register() {
         <button className="btn btn-navy w-full rounded-xl py-3" disabled={busy}>{busy ? <Spinner className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}Create account</button>
       </form>
       <div className="my-5 flex items-center gap-3 text-xs text-muted"><span className="h-px flex-1 bg-line" />or<span className="h-px flex-1 bg-line" /></div>
-      <GoogleButton onClick={() => signInWithGoogle('Afrigate Client Portal')} label="Sign up with Google" />
+      <GoogleButton onClick={() => { void signInWithGoogle().catch((error: Error) => setErr(error.message)); }} label="Sign up with Google" />
       <p className="mt-6 text-center text-sm text-muted">Already have an account? <Link to={`/login${next ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-navy hover:underline">Sign in</Link></p>
     </AuthShell>
   );
