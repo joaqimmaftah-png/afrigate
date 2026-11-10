@@ -1,7 +1,7 @@
 export const CONTACT = {
-  phone: '+255 766 523 718',
-  tel: '+255766523718',
-  whatsapp: '255766523718',
+  phone: '0745 163510',
+  tel: '+255745163510',
+  whatsapp: '255745163510',
   email: 'info@afrigate.co.tz',
   location: 'Dar es Salaam, Tanzania',
 };

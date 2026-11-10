@@ -56,7 +56,7 @@ export default function Login() {
         <button className="btn btn-navy w-full rounded-xl py-3" disabled={busy}>{busy ? <Spinner className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}Sign in</button>
       </form>
       <div className="my-5 flex items-center gap-3 text-xs text-muted"><span className="h-px flex-1 bg-line" />or<span className="h-px flex-1 bg-line" /></div>
-      <GoogleButton onClick={() => signInWithGoogle('Afrigate Client Portal')} />
+      <GoogleButton onClick={() => { void signInWithGoogle().catch((error: Error) => setErr(error.message)); }} />
       <p className="mt-6 text-center text-sm text-muted">New to Afrigate? <Link to={`/register${next ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-navy hover:underline">Create a client account</Link></p>
     </AuthShell>
   );
