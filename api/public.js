@@ -10,7 +10,7 @@ export default async function handler(req, res) {
       return res.status(200).json(data);
     }
     if (req.method === 'GET' && action === 'service') {
-      const { data, error } = await supabase.from('services').select('*').eq('slug', clean(req.query.slug, 100)).maybeSingle();
+      const { data, error } = await supabase.from('services').select('*').eq('slug', clean(req.query.slug, 100)).eq('is_active', true).maybeSingle();
       if (error) throw error;
       if (!data) throw new HttpError(404, 'Service not found.');
       return res.status(200).json(data);

@@ -58,12 +58,6 @@ export default function Login() {
       <div className="my-5 flex items-center gap-3 text-xs text-muted"><span className="h-px flex-1 bg-line" />or<span className="h-px flex-1 bg-line" /></div>
       <GoogleButton onClick={() => signInWithGoogle('Afrigate Client Portal')} />
       <p className="mt-6 text-center text-sm text-muted">New to Afrigate? <Link to={`/register${next ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-navy hover:underline">Create a client account</Link></p>
-      <div className="mt-8 rounded-xl border border-dashed border-line bg-canvas p-4 text-xs text-muted">
-        <div className="mb-1 font-semibold text-ink">Demo accounts (password: <span className="font-mono">Afrigate2026!</span>)</div>
-        {[['Customer', 'client@afrigate-demo.co.tz'], ['Consultant', 'consultant@afrigate-demo.co.tz'], ['Administrator', 'admin@afrigate-demo.co.tz']].map(([r, e]) => (
-          <button key={e} type="button" onClick={() => { setEmail(e); setPassword('Afrigate2026!'); }} className="block w-full rounded px-1 py-0.5 text-left hover:bg-white"><b className="text-navy">{r}:</b> <span className="font-mono">{e}</span></button>
-        ))}
-      </div>
     </AuthShell>
   );
 }

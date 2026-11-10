@@ -15,8 +15,11 @@ function buildGoogleUrl(appName: string) {
 export function signInWithGoogle(appName = 'Afrigate Client Portal') {
   const url = buildGoogleUrl(appName);
   if (!url) { console.warn('[google-auth] Missing VITE_GOOGLE_CLIENT_ID or VITE_GOOGLE_AUTH_PROXY'); return; }
-  window.open(url, 'google-auth', isMobile() ? '' : 'width=500,height=600');
+  const trustedOrigin = new URL(import.meta.env.VITE_GOOGLE_AUTH_PROXY).origin;
+  const popup = window.open(url, 'google-auth', isMobile() ? '' : 'width=500,height=600');
+  if (!popup) return;
   const handler = async (event: MessageEvent) => {
+    if (event.origin !== trustedOrigin || event.source !== popup) return;
     if (event.data?.type === 'google-auth-denied') { window.removeEventListener('message', handler); return; }
     if (event.data?.type !== 'google-auth-success') return;
     window.removeEventListener('message', handler);
@@ -29,6 +32,7 @@ export function signInWithGoogle(appName = 'Afrigate Client Portal') {
     }
   };
   window.addEventListener('message', handler);
+  window.setTimeout(() => window.removeEventListener('message', handler), 5 * 60 * 1000);
 }
 
 export async function handleGoogleRedirect() {

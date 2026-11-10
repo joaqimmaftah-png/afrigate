@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       if (c.status === 'Closed') throw new HttpError(400, 'This consultation is closed.');
       const size = Number(b.size);
       if (!ALLOWED[b.mime_type]) throw new HttpError(400, 'Unsupported file type. Upload PDF, image (JPG/PNG/WebP), Word, Excel or CSV files.');
-      if (!size || size > MAX) throw new HttpError(400, 'Files must be smaller than 10 MB.');
+      if (!Number.isSafeInteger(size) || size <= 0 || size > MAX) throw new HttpError(400, 'Files must be smaller than 10 MB.');
       const safe = clean(b.file_name, 140).replace(/[^a-zA-Z0-9._-]+/g, '_') || `file.${ALLOWED[b.mime_type]}`;
       const path = `${c.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
       const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
