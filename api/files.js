@@ -43,9 +43,15 @@ export default async function handler(req, res) {
       const folder = path.split('/').slice(0, -1).join('/');
       const fname = path.split('/').pop();
       const { data: listed } = await supabase.storage.from(BUCKET).list(folder, { search: fname });
-      if (!listed || !listed.some((o) => o.name === fname)) throw new HttpError(400, 'Upload not found. Please try again.');
+      const object = listed?.find((o) => o.name === fname);
+      if (!object) throw new HttpError(400, 'Upload not found. Please try again.');
+      const storedSize = Number(object.metadata?.size);
+      const storedMime = object.metadata?.mimetype;
+      if (!Number.isSafeInteger(storedSize) || storedSize <= 0 || storedSize > MAX || !ALLOWED[storedMime]) {
+        throw new HttpError(400, 'Uploaded file metadata is invalid or unsupported.');
+      }
       const staff = isStaff(profile);
-      const category = CATEGORIES.includes(b.category) ? b.category : 'Other';
+      const category = CATEGORIES.includes(b.category) && (staff || b.category !== 'Consultation Report') ? b.category : 'Other';
       const isReport = staff && (b.is_report === true || category === 'Consultation Report');
       const { data: doc, error } = await supabase
         .from('documents')
@@ -55,8 +61,8 @@ export default async function handler(req, res) {
           uploader_role: staff ? profile.role : 'customer',
           file_name: clean(b.file_name, 200),
           storage_path: path,
-          mime_type: clean(b.mime_type, 120),
-          size_bytes: Number(b.size) || 0,
+          mime_type: storedMime,
+          size_bytes: storedSize,
           category: isReport ? 'Consultation Report' : category,
           is_report: isReport,
           note: clean(b.note, 300) || null,
