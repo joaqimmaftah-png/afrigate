@@ -105,3 +105,7 @@ Do not call this deployment complete until a live URL is anonymously reachable, 
 ### Services catalog correction
 
 Migration `20261110092305_seed_service_catalog` added the four service areas already described on the site: Import & Export, Tax Consultation & Compliance, Business Registration, and Trade Facilitation. The new production database had zero service rows before this migration; a live SQL read verified four active rows afterwards. Existing rows are preserved with `ON CONFLICT (slug) DO NOTHING`. Homepage cards and desktop/mobile service navigation all use `/api/public?action=services`; Vercel protection must allow anonymous access to this endpoint. Public checks still redirected to Vercel login during diagnosis, so end-to-end rendering has not been verified. The UI now distinguishes loading, empty-catalog and failed-request states and offers retry rather than rendering an unexplained blank section. Non-JSON API responses are rejected explicitly rather than treated as successful data.
+
+## Preview-first CI/CD
+
+See [Release workflow](docs/RELEASE_WORKFLOW.md) for CI checks, preview review, staging isolation, release and rollback instructions, and the remaining protection/staging blockers.

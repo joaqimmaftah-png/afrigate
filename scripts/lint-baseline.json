@@ -1,0 +1,20 @@
+{
+  "src/components/ConsultationWorkspace.tsx|react-hooks/preserve-manual-memoization": 1,
+  "src/components/ConsultationWorkspace.tsx|react-hooks/refs": 1,
+  "src/components/ConsultationWorkspace.tsx|react-hooks/set-state-in-effect": 2,
+  "src/components/NotificationBell.tsx|react-hooks/set-state-in-effect": 1,
+  "src/components/PortalLayout.tsx|react-hooks/set-state-in-effect": 1,
+  "src/components/PublicLayout.tsx|react-hooks/set-state-in-effect": 1,
+  "src/contexts/AuthContext.tsx|react-refresh/only-export-components": 1,
+  "src/contexts/ServicesContext.tsx|react-hooks/set-state-in-effect": 1,
+  "src/pages/portal/NewConsultation.tsx|react-hooks/set-state-in-effect": 1,
+  "src/pages/public/Articles.tsx|react-hooks/set-state-in-effect": 1,
+  "src/pages/public/ServiceDetail.tsx|react-hooks/set-state-in-effect": 1,
+  "src/pages/shared/Appointments.tsx|react-hooks/purity": 1,
+  "src/pages/shared/ConsultationList.tsx|react-hooks/set-state-in-effect": 1,
+  "src/pages/shared/Profile.tsx|react-hooks/set-state-in-effect": 1,
+  "src/pages/staff/Audit.tsx|react-hooks/set-state-in-effect": 1,
+  "src/pages/staff/Reports.tsx|react-hooks/purity": 1,
+  "src/pages/staff/Reports.tsx|react-hooks/set-state-in-effect": 1,
+  "src/pages/staff/Users.tsx|react-hooks/set-state-in-effect": 1
+}

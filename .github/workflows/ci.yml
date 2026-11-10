@@ -1,0 +1,40 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Lint regression gate (existing debt remains visible)
+        run: node scripts/check-lint.mjs
+      - name: Security and unit tests
+        run: npm test
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+      - name: Typecheck and production build
+        run: npm run build
+        env:
+          # Public dummy values for compile-only CI. Never connects to production.
+          VITE_SUPABASE_URL: https://ci-example.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-public-placeholder
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-${{ github.sha }}
+          path: dist/
+          retention-days: 7
