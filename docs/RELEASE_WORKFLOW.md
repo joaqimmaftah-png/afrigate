@@ -54,3 +54,16 @@ In Vercel Deployments, select the previous known-good **Production** deployment 
 ## Known quality debt
 
 Full `npm run lint` currently reports 19 pre-existing errors. The committed per-file/per-rule baseline keeps them visible and fails CI on increased counts or new categories; it is not a claim of clean lint. Resolve findings and reduce baseline entries in future PRs. Current tests are mocked security/unit checks, not browser E2E tests. The Vercel project reports Node 26 as its setting, while package.json requests Node 24 and CI explicitly uses 24; verify effective runtime in deployment logs and align project settings via the dashboard (the connector does not expose nodeVersion).
+
+## Automated staging authorization smoke test
+
+`.github/workflows/staging-smoke.yml` runs after successful GitHub `Preview` deployment events (once this workflow is on main), or manually from Actions with an immutable preview URL. It always checks out the reviewed test code from main, has read-only GitHub permissions and never uses production credentials.
+
+The script `scripts/staging-smoke.mjs` refuses a Supabase URL other than the known staging project. It creates four temporary, uniquely named synthetic accounts with random passwords through Supabase Admin Auth (no email is sent), checks the default customer role, exercises customer/consultant/admin authorization and consultation ownership/assignment, verifies the resulting write exists in the staging DB, then deletes only its own records/accounts in a finally block. No reusable demo password is published. These are API integration tests, not browser or Google-consent tests. If cleanup fails, review the job output and remove only the run's `example.invalid` accounts and associated synthetic records in staging; do not reset the database.
+
+**Activation blocked:** the connected GitHub integration returned HTTP 403 when requesting the Actions secrets public key, so no Actions secrets could be added. The repository owner must add the following in Settings > Secrets and variables > Actions, or provide the integration Actions Secrets write permission:
+
+- `STAGING_PUBLIC_KEY`: staging public/anon key.
+- `STAGING_SERVICE_ROLE_KEY`: staging service-role key (never the production key).
+
+Obtain both from **afrigate-staging**, not afrigate. Do not paste secret values in chat. The URL is pinned in the workflow. After merging this workflow and configuring secrets, run it manually against the latest preview URL to verify its first successful execution. Future successful preview deployment events then trigger it automatically. A missing secret fails the test; it never falls back to production. No live authenticated test has yet been executed, and no test accounts have yet been created by this script.
