@@ -11,9 +11,13 @@
 
 ## Remaining blockers — do not mistake a READY build for functional staging
 
-Vercel currently has Supabase variables scoped to **Production only**. Preview deployments do not have a configured backend. Do NOT copy production credentials to Preview to make tests pass. A separate staging Supabase project is required for authentication, CRUD, uploads and staff testing. Provisioning and end-to-end verification are not completed by this PR.
+An isolated free-plan Supabase project `afrigate-staging` (`ufexjnqkppmcpjstabob`, eu-west-1) is now provisioned. All four Supabase variables are configured for Vercel **Preview only**, separate from the unchanged Production values. The staging service-role credential is sensitive/server-only. Existing preview deployments must be rebuilt to pick up the new values.
 
-GitHub returned HTTP 403 `Resource not accessible by integration` when reading main branch protection. Therefore enforced PR/review/check gates could not be configured or verified through this connection. An owner must configure them in Settings > Rules > Rulesets (or Branches > protection), or grant the integration repository Administration access:
+Applied staging migrations: `20261110143510_initial_schema` and `20261110143523_seed_service_catalog`, corresponding to the two versioned SQL files in this repository. Verified 12 RLS-protected tables, private consultation-docs bucket, four active service records, zero auth users and zero consultations at provisioning. No production users, files, SMTP credentials or customer records were copied.
+
+Staging Google provider and test email delivery are not configured yet. Authenticated end-to-end testing remains pending; do not claim the complete workflow is verified from public service checks alone.
+
+The owner reports configuring branch protection. Independent API verification remains unavailable: GitHub returned HTTP 403 `Resource not accessible by integration` when reading main branch protection. Therefore enforced PR/review/check gates could not be configured or verified through this connection. An owner must configure them in Settings > Rules > Rulesets (or Branches > protection), or grant the integration repository Administration access:
 
 - Target `main`; require a pull request; prevent force pushes and deletion.
 - Require up-to-date branches and passing checks `quality` (CI) and `Vercel` (verify exact displayed names after first run).
