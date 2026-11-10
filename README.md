@@ -101,3 +101,7 @@ Do not call this deployment complete until a live URL is anonymously reachable, 
 - Signup remains disabled; do not enable until email delivery, redirects and application workflows are tested.
 - The last lint run still reports 19 pre-existing application errors. Full authenticated CRUD, cross-account isolation, real uploads/downloads, recovery and mobile/browser tests remain pending.
 - Upload registration now reads actual Storage object size/MIME metadata rather than trusting the request body; customers cannot label an upload as a consultant report. This still needs a live storage integration test.
+
+### Services catalog correction
+
+Migration `20261110092305_seed_service_catalog` added the four service areas already described on the site: Import & Export, Tax Consultation & Compliance, Business Registration, and Trade Facilitation. The new production database had zero service rows before this migration; a live SQL read verified four active rows afterwards. Existing rows are preserved with `ON CONFLICT (slug) DO NOTHING`. Homepage cards and desktop/mobile service navigation all use `/api/public?action=services`; Vercel protection must allow anonymous access to this endpoint. Public checks still redirected to Vercel login during diagnosis, so end-to-end rendering has not been verified. The UI now distinguishes loading, empty-catalog and failed-request states and offers retry rather than rendering an unexplained blank section. Non-JSON API responses are rejected explicitly rather than treated as successful data.

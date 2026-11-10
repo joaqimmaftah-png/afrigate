@@ -24,7 +24,10 @@ export function ServicesProvider({ children }: { children: ReactNode }) {
   const load = () => {
     setLoading(true);
     api<Service[]>('/api/public?action=services')
-      .then((d) => { setServices(d); setError(null); })
+      .then((d) => {
+        if (!Array.isArray(d)) throw new Error('The services response is invalid. Please try again.');
+        setServices(d); setError(null);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
