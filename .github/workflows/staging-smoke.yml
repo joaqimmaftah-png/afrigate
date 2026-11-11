@@ -1,0 +1,40 @@
+name: Staging smoke
+on:
+  workflow_dispatch:
+    inputs:
+      preview_url:
+        description: 'Immutable afrigate preview URL (never production)'
+        required: true
+        type: string
+  deployment_status:
+permissions:
+  contents: read
+concurrency:
+  group: staging-smoke
+  cancel-in-progress: false
+jobs:
+  staging:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Preview' &&
+       github.event.deployment.ref != 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Use reviewed test code from main, not arbitrary deployed PR code.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Check staging-only login, roles, ownership and assignment
+        run: node scripts/staging-smoke.mjs
+        env:
+          STAGING_PREVIEW_URL: ${{ inputs.preview_url || github.event.deployment_status.environment_url }}
+          STAGING_SUPABASE_URL: https://ufexjnqkppmcpjstabob.supabase.co
+          STAGING_PUBLIC_KEY: ${{ secrets.STAGING_PUBLIC_KEY }}
+          STAGING_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SERVICE_ROLE_KEY }}

@@ -11,9 +11,13 @@
 
 ## Remaining blockers — do not mistake a READY build for functional staging
 
-Vercel currently has Supabase variables scoped to **Production only**. Preview deployments do not have a configured backend. Do NOT copy production credentials to Preview to make tests pass. A separate staging Supabase project is required for authentication, CRUD, uploads and staff testing. Provisioning and end-to-end verification are not completed by this PR.
+An isolated free-plan Supabase project `afrigate-staging` (`ufexjnqkppmcpjstabob`, eu-west-1) is now provisioned. All four Supabase variables are configured for Vercel **Preview only**, separate from the unchanged Production values. The staging service-role credential is sensitive/server-only. Existing preview deployments must be rebuilt to pick up the new values.
 
-GitHub returned HTTP 403 `Resource not accessible by integration` when reading main branch protection. Therefore enforced PR/review/check gates could not be configured or verified through this connection. An owner must configure them in Settings > Rules > Rulesets (or Branches > protection), or grant the integration repository Administration access:
+Applied staging migrations: `20261110143510_initial_schema` and `20261110143523_seed_service_catalog`, corresponding to the two versioned SQL files in this repository. Verified 12 RLS-protected tables, private consultation-docs bucket, four active service records, zero auth users and zero consultations at provisioning. No production users, files, SMTP credentials or customer records were copied.
+
+Staging Google provider and test email delivery are not configured yet. Authenticated end-to-end testing remains pending; do not claim the complete workflow is verified from public service checks alone.
+
+The owner reports configuring branch protection. Independent API verification remains unavailable: GitHub returned HTTP 403 `Resource not accessible by integration` when reading main branch protection. Therefore enforced PR/review/check gates could not be configured or verified through this connection. An owner must configure them in Settings > Rules > Rulesets (or Branches > protection), or grant the integration repository Administration access:
 
 - Target `main`; require a pull request; prevent force pushes and deletion.
 - Require up-to-date branches and passing checks `quality` (CI) and `Vercel` (verify exact displayed names after first run).
@@ -50,3 +54,16 @@ In Vercel Deployments, select the previous known-good **Production** deployment 
 ## Known quality debt
 
 Full `npm run lint` currently reports 19 pre-existing errors. The committed per-file/per-rule baseline keeps them visible and fails CI on increased counts or new categories; it is not a claim of clean lint. Resolve findings and reduce baseline entries in future PRs. Current tests are mocked security/unit checks, not browser E2E tests. The Vercel project reports Node 26 as its setting, while package.json requests Node 24 and CI explicitly uses 24; verify effective runtime in deployment logs and align project settings via the dashboard (the connector does not expose nodeVersion).
+
+## Automated staging authorization smoke test
+
+`.github/workflows/staging-smoke.yml` runs after successful GitHub `Preview` deployment events (once this workflow is on main), or manually from Actions with an immutable preview URL. It always checks out the reviewed test code from main, has read-only GitHub permissions and never uses production credentials.
+
+The script `scripts/staging-smoke.mjs` refuses a Supabase URL other than the known staging project. It creates four temporary, uniquely named synthetic accounts with random passwords through Supabase Admin Auth (no email is sent), checks the default customer role, exercises customer/consultant/admin authorization and consultation ownership/assignment, verifies the resulting write exists in the staging DB, then deletes only its own records/accounts in a finally block. No reusable demo password is published. These are API integration tests, not browser or Google-consent tests. If cleanup fails, review the job output and remove only the run's `example.invalid` accounts and associated synthetic records in staging; do not reset the database.
+
+**Activation blocked:** the connected GitHub integration returned HTTP 403 when requesting the Actions secrets public key, so no Actions secrets could be added. The repository owner must add the following in Settings > Secrets and variables > Actions, or provide the integration Actions Secrets write permission:
+
+- `STAGING_PUBLIC_KEY`: staging public/anon key.
+- `STAGING_SERVICE_ROLE_KEY`: staging service-role key (never the production key).
+
+Obtain both from **afrigate-staging**, not afrigate. Do not paste secret values in chat. The URL is pinned in the workflow. After merging this workflow and configuring secrets, run it manually against the latest preview URL to verify its first successful execution. Future successful preview deployment events then trigger it automatically. A missing secret fails the test; it never falls back to production. No live authenticated test has yet been executed, and no test accounts have yet been created by this script.
