@@ -1,24 +1,17 @@
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
-import { checkStagingBrowser, stagingPreviewOrigin } from './staging-browser.mjs';
+import { checkStagingBrowser } from './staging-browser.mjs';
+import { STAGING_BACKEND, stagingBuildContext, stagingPreviewOrigin } from './staging-preview.mjs';
 
-const stagingUrl = 'https://ufexjnqkppmcpjstabob.supabase.co';
 const inBuild = process.argv.includes('--vercel-build');
+const build = inBuild ? stagingBuildContext() : null;
+if (inBuild) assert.ok(build, 'Refusing to run outside the connected AfriGate Vercel Preview');
 const url = inBuild ? process.env.NEXT_PUBLIC_SUPABASE_URL : process.env.STAGING_SUPABASE_URL;
 const key = inBuild ? process.env.SUPABASE_SERVICE_ROLE_KEY : process.env.STAGING_SERVICE_ROLE_KEY;
 const publicKey = inBuild ? process.env.VITE_SUPABASE_ANON_KEY : process.env.STAGING_PUBLIC_KEY;
-const base = new URL(inBuild ? 'https://staging-build.invalid' : process.env.STAGING_PREVIEW_URL || 'https://invalid.example');
-assert.equal(url, stagingUrl, 'Refusing to run outside the isolated staging project');
-if (inBuild) {
-  assert.equal(process.env.VERCEL_ENV, 'preview', 'Refusing to run outside a Vercel preview');
-  assert.equal(process.env.VITE_SUPABASE_URL, stagingUrl, 'Preview browser must use the same staging project');
-  assert.equal(process.env.VITE_TRANSPORT_ENABLED, 'true', 'Preview client transport flag required');
-  assert.equal(process.env.TRANSPORT_ENABLED, 'true', 'Preview server transport flag required');
-} else {
-  assert.match(base.hostname, /^afrigate-(?!git-main-)[a-z0-9-]+-africa-maarifa\.vercel\.app$/);
-  assert.equal(base.protocol, 'https:');
-}
+const base = inBuild ? 'https://staging-build.invalid' : stagingPreviewOrigin(process.env.STAGING_PREVIEW_URL);
+assert.ok(url === STAGING_BACKEND, 'Refusing to run outside the isolated staging project');
 assert.ok(key && publicKey, 'Staging credentials required');
 const browserPreview = inBuild && process.env.AFRIGATE_STAGING_BROWSER_URL
   ? stagingPreviewOrigin(process.env.AFRIGATE_STAGING_BROWSER_URL) : null;
@@ -92,6 +85,7 @@ async function makeAccount(role) {
   return { id: user.id, token, email, ...(browserPreview ? { password } : {}) };
 }
 try {
+  console.log(`Staging smoke run ${run}`);
   // Both public and privileged data paths must target the same staging database.
   const services = await request('/api/public?action=services');
   assert.equal(services.status, 200);
@@ -123,7 +117,7 @@ try {
   assert.equal((await track(customer.email)).status, 200);
   assert.equal((await track(other.email)).status, 404);
   console.log('PASS: staging password login, default customer role, admin-only management, consultation ownership/assignment and public lookup.');
-  if (inBuild) {
+  if (build?.transport) {
     assert.equal((await request('/api/transport?action=directory')).status, 401);
     const directory = await request('/api/transport?action=directory', customer.token);
     assert.equal(directory.status, 200);
@@ -136,6 +130,9 @@ try {
     const invalid = await request('/api/transport?action=create_request', customer.token, { method: 'POST', body: '{}' });
     assert.equal(invalid.status, 400, 'PostgREST must return the transport write validation error');
     console.log('PASS: transport handlers reach the staging read/write RPCs through real Auth and PostgREST.');
+  } else if (build) {
+    assert.equal((await request('/api/transport?action=access', customer.token)).status, 404);
+    console.log('PASS: transport remains disabled on this Preview.');
   }
   if (browserPreview) {
     const booking = bookingRun ? {

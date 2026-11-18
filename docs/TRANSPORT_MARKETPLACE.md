@@ -17,7 +17,7 @@ To pause a rollout, disable the API flag and redeploy with the client flag disab
 
 - Staging Supabase project `ufexjnqkppmcpjstabob` was restored. The management API recorded the repository's `20261118090000_transport_marketplace.sql` as `20261118094643_transport_marketplace`, after the two core migrations. Do not reapply it based on the timestamp difference.
 - In hosted PostgreSQL, synthetic fixtures exercised provider approval, private invitations, two itemized quotes, requester/company isolation, and selected-provider confirmation. The test rolled back the fixture rows. All seven transport tables have RLS, and only the service role can call the transport RPCs through PostgREST.
-- For a separate Auth and PostgREST smoke on a trusted Preview branch, see [the opt-in build smoke](RELEASE_WORKFLOW.md#opt-in-vercel-preview-build-smoke). It does not replace a deployed browser review.
+- A trusted Preview with both transport flags enabled tests Auth and the transport RPCs in its build; see [the staging smoke](RELEASE_WORKFLOW.md#automated-staging-smoke-test). The build checks do not replace the [deployed browser review](RELEASE_WORKFLOW.md#opt-in-deployed-browser-smoke).
 
 ## Implementation and local verification
 

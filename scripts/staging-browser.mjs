@@ -10,15 +10,6 @@ import { checkStagingAppointment, checkStagingBooking } from './staging-journeys
 
 const exec = promisify(execFile);
 
-export function stagingPreviewOrigin(value) {
-  const target = new URL(value);
-  assert.equal(target.protocol, 'https:', 'Expected an HTTPS preview URL');
-  assert.match(target.hostname, /^afrigate-[a-z0-9]+-africa-maarifa\.vercel\.app$/, 'Use an immutable AfriGate Preview URL');
-  assert.ok(!target.username && !target.password && !target.port && !target.search && !target.hash && target.pathname === '/',
-    'Use only the immutable Preview origin');
-  return target.origin;
-}
-
 // Called only by the guarded Preview build smoke. No browser tooling is
 // installed in the app itself or launched for routine CI/Production builds.
 export async function checkStagingBrowser({ preview, staging, customer, other, consultant, admin, consultation, request, booking }) {
