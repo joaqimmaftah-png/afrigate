@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import { checkStagingAppointment, checkStagingBooking } from './staging-journeys.mjs';
 
 const exec = promisify(execFile);
 
@@ -20,7 +21,7 @@ export function stagingPreviewOrigin(value) {
 
 // Called only by the guarded Preview build smoke. No browser tooling is
 // installed in the app itself or launched for routine CI/Production builds.
-export async function checkStagingBrowser({ preview, staging, customer, other, consultant, admin, consultation }) {
+export async function checkStagingBrowser({ preview, staging, customer, other, consultant, admin, consultation, request, booking }) {
   const probe = await fetch(`${preview}/api/transport?action=access`, { redirect: 'error', signal: AbortSignal.timeout(15000) });
   assert.equal(probe.status, 401, 'Expected an enabled transport API requiring login on the Preview');
   assert.match(probe.headers.get('content-type') || '', /application\/json/, 'Expected the AfriGate API, not a deployment login page');
@@ -49,7 +50,7 @@ export async function checkStagingBrowser({ preview, staging, customer, other, c
     const go = (page, path) => page.goto(`${preview}${path}`, { waitUntil: 'domcontentloaded' });
     const directory = page => page.getByRole('heading', { name: 'Find a transport provider', exact: true });
     const login = async (account, path, viewport) => {
-      const context = await browser.newContext({ viewport, serviceWorkers: 'block' });
+      const context = await browser.newContext({ viewport, serviceWorkers: 'block', timezoneId: 'Africa/Dar_es_Salaam' });
       // Never submit credentials to a different project, even on a misconfigured build.
       await context.route('**/*', route => [preview, staging].includes(new URL(route.request().url()).origin)
         ? route.continue() : route.abort());
@@ -75,7 +76,6 @@ export async function checkStagingBrowser({ preview, staging, customer, other, c
     await desktop.getByRole('heading', { name: consultation.subject, exact: true }).waitFor();
     await go(desktop, '/provider/inbox');
     await desktop.getByText('Provider workspace access required', { exact: true }).waitFor();
-    await desktop.context().close();
 
     phase = 'checking mobile directory filters, private access and sign-out';
     const mobile = await login(other, '/portal/transport', { width: 390, height: 844 });
@@ -99,12 +99,20 @@ export async function checkStagingBrowser({ preview, staging, customer, other, c
     phase = 'checking assigned consultant and provider administration pages';
     const staff = await login(consultant, `/staff/consultations/${consultation.id}`, { width: 1360, height: 900 });
     await staff.getByRole('heading', { name: consultation.subject, exact: true }).waitFor();
+    phase = 'requesting and confirming a consultation appointment';
+    await checkStagingAppointment({ preview, go, buyer: desktop, staff, consultation, request, other });
     await staff.context().close();
+    phase = 'checking provider administration';
     const management = await login(admin, '/staff/transport-providers', { width: 1360, height: 900 });
     await management.getByRole('heading', { name: 'Transport providers', exact: true }).waitFor();
     await management.getByRole('link', { name: 'Add provider', exact: true }).waitFor();
     await management.context().close();
     console.log('PASS: deployed staging browser — desktop/mobile login, directory filter, provider gate, consultation privacy/assignment, admin page and logout.');
+    if (booking) {
+      booking.begin();
+      await checkStagingBooking({ ...booking, preview, go, login, request, buyer: desktop, customer, other, admin,
+        phase: next => { phase = next; } });
+    }
   } catch {
     // Playwright errors may include values typed into the login form.
     throw new Error(`Staging browser check failed while ${phase}.`);
