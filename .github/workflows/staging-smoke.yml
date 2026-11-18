@@ -3,51 +3,37 @@ on:
   workflow_dispatch:
     inputs:
       preview_url:
-        description: 'Immutable afrigate preview URL (never production)'
+        description: 'Immutable AfriGate Preview for the selected branch and commit'
         required: true
         type: string
   deployment_status:
 permissions:
   contents: read
-concurrency:
-  group: staging-smoke
-  cancel-in-progress: false
 jobs:
   staging:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.deployment_status.state == 'success' &&
-       github.event.deployment.environment == 'Preview' &&
-       github.event.deployment.ref != 'main')
+      github.repository == 'joaqimmaftah-png/afrigate' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.deployment_status.state == 'success' &&
+        github.event.deployment.environment == 'Preview' &&
+        github.event.deployment.production_environment == false &&
+        github.event.deployment.creator.login == 'vercel[bot]' &&
+        github.event.deployment_status.creator.login == 'vercel[bot]'))
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Check that staging credentials are configured
-        shell: bash
-        env:
-          STAGING_PUBLIC_KEY: ${{ secrets.STAGING_PUBLIC_KEY }}
-          STAGING_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SERVICE_ROLE_KEY }}
-        run: |
-          missing=()
-          [[ -n "$STAGING_PUBLIC_KEY" ]] || missing+=(STAGING_PUBLIC_KEY)
-          [[ -n "$STAGING_SERVICE_ROLE_KEY" ]] || missing+=(STAGING_SERVICE_ROLE_KEY)
-          if (( ${#missing[@]} )); then
-            printf '::error title=Missing staging Actions secrets::%s\n' "${missing[*]}"
-            exit 1
-          fi
-      # Use reviewed test code from main, not arbitrary deployed PR code.
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.deployment.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: npm
-      - run: npm ci
-      - name: Check staging-only login, roles, ownership and assignment
-        run: node scripts/staging-smoke.mjs
+      # Signed-in checks are required by the Vercel Preview build. This job
+      # verifies its revision-specific result and probes the deployed routes
+      # without ever receiving credentials or creating accounts in GitHub.
+      - name: Verify the staging build result and deployed Preview
+        run: node scripts/check-staging-preview.mjs
         env:
           STAGING_PREVIEW_URL: ${{ inputs.preview_url || github.event.deployment_status.environment_url }}
-          STAGING_SUPABASE_URL: https://ufexjnqkppmcpjstabob.supabase.co
-          STAGING_PUBLIC_KEY: ${{ secrets.STAGING_PUBLIC_KEY }}
-          STAGING_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SERVICE_ROLE_KEY }}
+          STAGING_PREVIEW_SHA: ${{ github.event.deployment.sha || github.sha }}

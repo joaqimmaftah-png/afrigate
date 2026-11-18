@@ -38,9 +38,9 @@ Vite development alone does **not** run the Node API functions. Full-stack testi
 
 Current checks (Node 24, 2026-11-18):
 
-- `npm test`: eight local checks passed, including the Postgres transport tests. The separate hosted staging smoke is skipped unless intentionally enabled.
-- `npm run build`: typecheck and frontend build passed; Vite still warns about the size of the main JavaScript chunk.
-- `npm audit --audit-level=high`: fails on [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) in `picomatch`, a transitive build/lint dependency. No patched version is published at this date. Keep the audit blocking; do not use the suggested forced Vite downgrade, which has its own high-severity advisories.
+- `npm test`: 14 local checks passed, including Postgres transport, build-tool glob compatibility, and staging verification guards.
+- `npm run build`: typecheck and frontend build passed; Vite still warns about the size of the main JavaScript chunk. Only the connected Vercel Git Preview runs the real staging Auth checks as part of its build.
+- `npm audit --audit-level=high`: zero reported vulnerabilities. The build tools use a [restricted local replacement](docs/RELEASE_WORKFLOW.md#build-tool-security) for the affected `picomatch` package. The full audit remains blocking.
 - `npm run lint`: **fails with 19 existing application errors**. `node scripts/check-lint.mjs` passes the regression gate without hiding the existing errors.
 - See [the release workflow](docs/RELEASE_WORKFLOW.md) for checks of the isolated deployed preview. Local checks are not production verification.
 
