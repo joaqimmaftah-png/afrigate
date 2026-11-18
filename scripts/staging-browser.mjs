@@ -77,7 +77,7 @@ export async function checkStagingBrowser({ preview, staging, customer, other, c
     await go(desktop, '/provider/inbox');
     await desktop.getByText('Provider workspace access required', { exact: true }).waitFor();
 
-    phase = 'checking mobile directory filters, private access and sign-out';
+    phase = 'checking mobile directory filters and private access';
     const mobile = await login(other, '/portal/transport', { width: 390, height: 844 });
     await directory(mobile).waitFor();
     await mobile.getByText(/\d+ on this page/).waitFor();
@@ -89,33 +89,39 @@ export async function checkStagingBrowser({ preview, staging, customer, other, c
     await mobile.getByText(/\d+ on this page/).waitFor();
     await go(mobile, `/portal/requests/${consultation.id}`);
     await mobile.getByText('You do not have access to this consultation.', { exact: true }).waitFor();
-    await mobile.getByRole('button', { name: 'Open menu' }).click();
-    await mobile.getByRole('button', { name: 'Sign out', exact: true }).click();
-    await mobile.waitForURL(`${preview}/`);
-    await go(mobile, '/portal/transport');
-    await mobile.waitForURL(url => url.pathname === '/login');
-    await mobile.context().close();
 
     phase = 'checking assigned consultant and provider administration pages';
     const staff = await login(consultant, `/staff/consultations/${consultation.id}`, { width: 1360, height: 900 });
     await staff.getByRole('heading', { name: consultation.subject, exact: true }).waitFor();
-    phase = 'requesting and confirming a consultation appointment';
-    await checkStagingAppointment({ preview, go, buyer: desktop, staff, consultation, request, other });
+    const setPhase = next => { phase = next; };
+    await checkStagingAppointment({ preview, go, buyer: desktop, staff, consultation, request, other, phase: setPhase });
     await staff.context().close();
     phase = 'checking provider administration';
     const management = await login(admin, '/staff/transport-providers', { width: 1360, height: 900 });
     await management.getByRole('heading', { name: 'Transport providers', exact: true }).waitFor();
     await management.getByRole('link', { name: 'Add provider', exact: true }).waitFor();
     await management.context().close();
-    console.log('PASS: deployed staging browser — desktop/mobile login, directory filter, provider gate, consultation privacy/assignment, admin page and logout.');
     if (booking) {
       booking.begin();
-      await checkStagingBooking({ ...booking, preview, go, login, request, buyer: desktop, customer, other, admin,
-        phase: next => { phase = next; } });
+      await checkStagingBooking({ ...booking, preview, go, login, request, buyer: desktop, customer, other, admin, phase: setPhase });
     }
-  } catch {
-    // Playwright errors may include values typed into the login form.
-    throw new Error(`Staging browser check failed while ${phase}.`);
+
+    // Supabase sign-out can revoke the other client's programmatic session too.
+    // Do this after the ownership checks that use that separate session.
+    phase = 'signing out on mobile and checking the login redirect';
+    await mobile.getByRole('button', { name: 'Open menu' }).click();
+    await mobile.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await mobile.waitForURL(`${preview}/`);
+    await go(mobile, '/portal/transport');
+    await mobile.waitForURL(url => url.pathname === '/login');
+    console.log('PASS: deployed staging browser — desktop/mobile login, directory filter, provider gate, consultation privacy/assignment, admin page and logout.');
+  } catch (error) {
+    // Playwright errors may include typed values. Keep phase and numeric
+    // assertion results, never the error message, page contents, or secrets.
+    const detail = error?.name === 'TimeoutError' ? ' (timeout)' :
+      Number.isSafeInteger(error?.actual) && Number.isSafeInteger(error?.expected)
+        ? ` (observed ${error.actual}; expected ${error.expected})` : '';
+    throw new Error(`Staging browser check failed while ${phase}${detail}.`);
   } finally {
     try {
       if (browser) await browser.close();

@@ -14,7 +14,8 @@ async function submit(page, preview, path, method, status, click) {
   return response.json();
 }
 
-export async function checkStagingAppointment({ preview, go, buyer, staff, consultation, request, other }) {
+export async function checkStagingAppointment({ preview, go, buyer, staff, consultation, request, other, phase }) {
+  phase('requesting an appointment from the consultation');
   await go(buyer, `/portal/requests/${consultation.id}`);
   await button(buyer, 'Book').click();
   const form = buyer.getByRole('dialog', { name: 'Book a consultation appointment' });
@@ -27,10 +28,12 @@ export async function checkStagingAppointment({ preview, go, buyer, staff, consu
   assert.equal(appointment.consultation_id, consultation.id);
   assert.equal(appointment.status, 'Requested');
   assert.equal(new Date(appointment.scheduled_at).toISOString(), `${date}T07:00:00.000Z`);
+  phase('checking that an unrelated client cannot see the appointment');
   const outside = await request(path, other.token);
   assert.equal(outside.status, 200);
   assert.ok(!outside.data.some(item => item.id === appointment.id), 'Other clients must not see the appointment');
 
+  phase('confirming the appointment as the assigned consultant');
   await go(staff, '/staff/appointments');
   const staffCard = staff.locator('.card').filter({ has: staff.getByRole('link', { name: consultation.reference, exact: true }) });
   await button(staffCard, 'Confirm').click();

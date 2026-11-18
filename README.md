@@ -36,13 +36,13 @@ npm run lint
 
 Vite development alone does **not** run the Node API functions. Full-stack testing requires a compatible Vercel development environment or a deployed preview.
 
-Validation performed in the Arena sandbox used Node 22.22.3, not the intended Node 24 runtime:
+Current checks (Node 24, 2026-11-18):
 
-- `npm test`: five focused checks passed (missing-token rejection, admin role guard, error redaction, bounded input cleaning, instrumentation removal).
-- `npm run build`: passed; main JavaScript bundle is approximately 758 kB before gzip, with a chunk-size warning.
-- `npm audit` and `npm audit --omit=dev`: zero reported vulnerabilities after dependency updates. A minimatch override resolves the reported transitive vulnerability; retain audit checks on future upgrades.
-- `npm run lint`: **fails with 19 existing application errors**, including effect state updates, render-time ref/purity checks, memoization and mixed Fast Refresh exports. These have not been suppressed or represented as passing.
-- No live authentication, CRUD, browser/mobile, upload/download, email recovery, OAuth, database security, or deployment-workflow tests were possible. Unit checks do not substitute for them.
+- `npm test`: eight local checks passed, including the Postgres transport tests. The separate hosted staging smoke is skipped unless intentionally enabled.
+- `npm run build`: typecheck and frontend build passed; Vite still warns about the size of the main JavaScript chunk.
+- `npm audit --audit-level=high`: fails on [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) in `picomatch`, a transitive build/lint dependency. No patched version is published at this date. Keep the audit blocking; do not use the suggested forced Vite downgrade, which has its own high-severity advisories.
+- `npm run lint`: **fails with 19 existing application errors**. `node scripts/check-lint.mjs` passes the regression gate without hiding the existing errors.
+- See [the release workflow](docs/RELEASE_WORKFLOW.md) for checks of the isolated deployed preview. Local checks are not production verification.
 
 ## Environment variables
 

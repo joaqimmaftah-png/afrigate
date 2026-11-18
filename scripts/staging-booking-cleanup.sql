@@ -7,7 +7,7 @@ declare
   actors uuid[];
   providers uuid[];
   requests uuid[];
-  consultations bigint[];
+  consultation_ids bigint[];
 begin
   select coalesce(array_agg(id), '{}') into actors from auth.users where email in (
     'customer-' || run_id || '-0@example.invalid', 'customer-' || run_id || '-1@example.invalid',
@@ -18,7 +18,7 @@ begin
     (name = 'Staging Carrier A ' || run_id and booking_email = 'booking-a-' || run_id || '@example.invalid') or
     (name = 'Staging Carrier B ' || run_id and booking_email = 'booking-b-' || run_id || '@example.invalid');
   select coalesce(array_agg(id), '{}') into requests from public.transport_requests where customer_id = any(actors);
-  select coalesce(array_agg(id), '{}') into consultations from public.consultations
+  select coalesce(array_agg(id), '{}') into consultation_ids from public.consultations
     where customer_id = any(actors) and subject = 'Staging smoke ' || run_id;
 
   -- If a non-fixture client has interacted with these providers, stop rather
@@ -40,14 +40,14 @@ begin
   delete from public.transport_providers where id = any(providers);
 
   delete from public.notifications where user_id = any(actors) or link in (
-    select '/portal/requests/' || id from unnest(consultations) as c(id)
-    union all select '/staff/consultations/' || id from unnest(consultations) as c(id)
+    select '/portal/requests/' || id from unnest(consultation_ids) as c(id)
+    union all select '/staff/consultations/' || id from unnest(consultation_ids) as c(id)
   );
   delete from public.audit_logs where actor_id = any(actors);
-  delete from public.appointments where consultation_id = any(consultations);
-  delete from public.messages where consultation_id = any(consultations);
-  delete from public.status_history where consultation_id = any(consultations);
-  delete from public.consultations where id = any(consultations);
+  delete from public.appointments where consultation_id = any(consultation_ids);
+  delete from public.messages where consultation_id = any(consultation_ids);
+  delete from public.status_history where consultation_id = any(consultation_ids);
+  delete from public.consultations where id = any(consultation_ids);
   delete from public.profiles where id = any(actors);
   delete from auth.users where id = any(actors);
 end;
