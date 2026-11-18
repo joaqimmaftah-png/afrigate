@@ -11,7 +11,7 @@ The user authorized a fresh project and migration of old data if available. No l
 ## Architecture
 
 - React 19, TypeScript, React Router, Tailwind 4 and Vite 7 frontend, compiled to `dist`.
-- Six Node API entrypoints under `api/`: account, admin, appointments, consultations, files and public. Shared server code lives in `api/_lib/`, not standalone function routes.
+- Six core Node API entrypoints under `api/`: account, admin, appointments, consultations, files and public. An optional `transport` entrypoint serves the marketplace behind a feature flag. Shared server code lives in `api/_lib/`, not standalone function routes.
 - Supabase Auth issues sessions; the browser sends bearer tokens to same-origin API routes. The API verifies tokens with Supabase and loads the profile from the database.
 - The API uses a **server-only service-role key**. This bypasses RLS, so every private operation must enforce resource ownership and role authorization in the API. Database RLS remains essential to prevent direct browser access.
 - Roles: customer, consultant, admin. New profiles are provisioned as customers, never from a user-supplied role.
@@ -109,3 +109,7 @@ Migration `20261110092305_seed_service_catalog` added the four service areas alr
 ## Preview-first CI/CD
 
 See [Release workflow](docs/RELEASE_WORKFLOW.md) for CI checks, preview review, staging isolation, release and rollback instructions, and the remaining protection/staging blockers.
+
+## Transport marketplace
+
+The optional transport module gives clients a verified provider directory, private quote comparisons, and provider-confirmed bookings. It does not add shipment tracking, delivery management, or payment collection. It is disabled by default; see [Transport marketplace pilot](docs/TRANSPORT_MARKETPLACE.md) for the additive migration, staging flags, and provider onboarding steps.

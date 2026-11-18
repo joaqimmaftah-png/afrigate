@@ -1,4 +1,4 @@
-import { supabase, cors, handleError, body, clean, getAuth, audit, notify, adminIds, HttpError, loadConsultation, isStaff, profileMap, serviceMap } from './_lib/util.js';
+import { supabase, cors, handleError, body, clean, getAuth, requireRole, audit, notify, adminIds, HttpError, loadConsultation, isStaff, profileMap, serviceMap } from './_lib/util.js';
 
 const METHODS = ['In-person meeting', 'Phone call', 'Video meeting', 'WhatsApp call'];
 const STATUSES = ['Requested', 'Confirmed', 'Completed', 'Cancelled'];
@@ -7,6 +7,7 @@ export default async function handler(req, res) {
   if (cors(req, res)) return;
   try {
     const { profile } = await getAuth(req);
+    requireRole(profile, ['customer', 'consultant', 'admin']);
 
     if (req.method === 'GET') {
       let q = supabase.from('appointments').select('*').order('scheduled_at', { ascending: true });
