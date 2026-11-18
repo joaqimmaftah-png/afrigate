@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import { checkStagingBrowser, stagingPreviewOrigin } from './staging-browser.mjs';
 
 const stagingUrl = 'https://ufexjnqkppmcpjstabob.supabase.co';
 const inBuild = process.argv.includes('--vercel-build');
@@ -19,12 +20,20 @@ if (inBuild) {
   assert.equal(base.protocol, 'https:');
 }
 assert.ok(key && publicKey, 'Staging credentials required');
+const browserPreview = inBuild && process.env.AFRIGATE_STAGING_BROWSER_URL
+  ? stagingPreviewOrigin(process.env.AFRIGATE_STAGING_BROWSER_URL) : null;
+const bookingRun = process.env.AFRIGATE_STAGING_BOOKING_RUN;
+if (bookingRun !== undefined) {
+  assert.ok(browserPreview, 'Booking smoke requires a trusted staging Preview and the browser opt-in');
+  assert.match(bookingRun, /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/, 'Provide a fresh lowercase booking run UUID');
+}
 const handlers = inBuild ? new Map(await Promise.all(['public', 'account', 'admin', 'consultations', 'transport'].map(async name => [
   `/api/${name}`, (await import(`../api/${name}.js`)).default,
 ]))) : null;
 const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 const accounts = [];
-const run = randomUUID();
+const run = bookingRun ?? randomUUID();
+let retainBookingFixtures = false;
 async function checked(result) {
   if (result.error) throw new Error(result.error.message);
   return result.data;
@@ -49,6 +58,14 @@ async function request(path, token, options = {}) {
     assert.ok(result, 'Expected a JSON response from the handler');
     return result;
   }
+  return requestJson(target, token, options);
+}
+async function previewRequest(path, token, options) {
+  const target = new URL(path, browserPreview);
+  assert.equal(target.origin, browserPreview, 'Expected the pinned staging preview');
+  return requestJson(target, token, options);
+}
+async function requestJson(target, token, options) {
   const response = await fetch(target, {
     ...options,
     redirect: 'error',
@@ -72,7 +89,7 @@ async function makeAccount(role) {
   if (role !== 'customer') await checked(await db.from('profiles').update({ role }).eq('id', user.id));
   const profile = await request('/api/account?action=me', token);
   assert.equal(profile.data.role, role);
-  return { id: user.id, token, email };
+  return { id: user.id, token, email, ...(browserPreview ? { password } : {}) };
 }
 try {
   // Both public and privileged data paths must target the same staging database.
@@ -120,6 +137,18 @@ try {
     assert.equal(invalid.status, 400, 'PostgREST must return the transport write validation error');
     console.log('PASS: transport handlers reach the staging read/write RPCs through real Auth and PostgREST.');
   }
+  if (browserPreview) {
+    const booking = bookingRun ? {
+      run,
+      carriers: [await makeAccount('customer'), await makeAccount('customer')],
+      begin() {
+        retainBookingFixtures = true;
+        console.log(`Booking smoke ${run}: operator cleanup required after the build.`);
+      },
+    } : undefined;
+    await checkStagingBrowser({ preview: browserPreview, staging: url, customer, other, consultant, admin, consultation: created.data,
+      request: previewRequest, booking });
+  }
 } finally {
   // Delete only this run's synthetic records; never truncate/reset staging.
   const ids = accounts.map((a) => a.id);
@@ -134,10 +163,15 @@ try {
       }
       await checked(await db.from('consultations').delete().in('id', consultationIds));
     }
-    await checked(await db.from('notifications').delete().in('user_id', ids));
-    await checked(await db.from('audit_logs').delete().in('actor_id', ids));
-    await checked(await db.from('profiles').delete().in('id', ids));
-    for (const account of accounts) await checked(await db.auth.admin.deleteUser(account.id));
-    console.log('Synthetic records and temporary accounts cleaned up.');
+    if (retainBookingFixtures) {
+      // Transport table grants intentionally forbid service-role cleanup.
+      console.log(`Consultation and appointments cleaned up. Run scripts/staging-booking-cleanup.sql for booking smoke ${run}.`);
+    } else {
+      await checked(await db.from('notifications').delete().in('user_id', ids));
+      await checked(await db.from('audit_logs').delete().in('actor_id', ids));
+      await checked(await db.from('profiles').delete().in('id', ids));
+      for (const account of accounts) await checked(await db.auth.admin.deleteUser(account.id));
+      console.log('Synthetic records and temporary accounts cleaned up.');
+    }
   }
 }
