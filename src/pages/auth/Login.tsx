@@ -5,6 +5,7 @@ import AuthShell, { GoogleButton } from './AuthShell';
 import supabase from '../../lib/supabase';
 import { signInWithGoogle } from '../../lib/googleAuth';
 import { useAuth, homeFor } from '../../contexts/AuthContext';
+import { TRANSPORT_ENABLED } from '../../lib/transport';
 import { Alert, Field, Spinner } from '../../components/ui';
 
 export default function Login() {
@@ -22,7 +23,8 @@ export default function Login() {
   useEffect(() => {
     if (!loading && user && profile) {
       const staff = profile.role !== 'customer';
-      const target = next && (staff ? next.startsWith('/staff') : next.startsWith('/portal')) ? next : homeFor(profile);
+      const providerPath = TRANSPORT_ENABLED && next && /^\/provider(?:\/|[?#]|$)/.test(next);
+      const target = next && (providerPath || (staff ? /^\/staff(?:\/|[?#]|$)/.test(next) : /^\/portal(?:\/|[?#]|$)/.test(next))) ? next : homeFor(profile);
       nav(target, { replace: true });
     }
   }, [user, profile, loading, next, nav]);

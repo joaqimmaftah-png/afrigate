@@ -11,6 +11,7 @@ export default async function handler(req, res) {
   const action = req.query.action;
   try {
     const { profile } = await getAuth(req);
+    requireRole(profile, ['customer', 'consultant', 'admin']);
 
     // ---------- LIST ----------
     if (req.method === 'GET' && action === 'list') {

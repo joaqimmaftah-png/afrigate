@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FilePlus2, FolderKanban, CalendarDays, FileText, UserCircle2, LogOut, Menu, X, Globe,
-  Users, Settings2, ScrollText, BarChart3, Newspaper, Inbox, ListChecks,
+  Users, Settings2, ScrollText, BarChart3, Newspaper, Inbox, ListChecks, Truck, ClipboardList, Building2,
 } from 'lucide-react';
 import { Logo } from './ui';
 import NotificationBell from './NotificationBell';
-import { useAuth } from '../contexts/AuthContext';
+import { homeFor, useAuth } from '../contexts/AuthContext';
+import { CLIENT_TRANSPORT, PROVIDER_INBOX, STAFF_PROVIDERS, TRANSPORT_ENABLED, transportPath } from '../lib/transport';
+import { useTransportQuery } from '../pages/transport/useTransport';
 
 type Item = { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean };
 
@@ -14,6 +16,7 @@ const CUSTOMER: Item[] = [
   { to: '/portal', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/portal/new', label: 'New Consultation', icon: FilePlus2 },
   { to: '/portal/requests', label: 'My Requests', icon: FolderKanban },
+  ...(TRANSPORT_ENABLED ? [{ to: CLIENT_TRANSPORT, label: 'Transport', icon: Truck }] : []),
   { to: '/portal/appointments', label: 'Appointments', icon: CalendarDays },
   { to: '/portal/documents', label: 'Documents', icon: FileText },
   { to: '/portal/profile', label: 'Profile & Company', icon: UserCircle2 },
@@ -29,6 +32,7 @@ const CONSULTANT: Item[] = [
 
 const ADMIN_EXTRA: Item[] = [
   { to: '/staff/users', label: 'Users & Roles', icon: Users },
+  ...(TRANSPORT_ENABLED ? [{ to: STAFF_PROVIDERS, label: 'Transport Providers', icon: Building2 }] : []),
   { to: '/staff/services', label: 'Service Categories', icon: Settings2 },
   { to: '/staff/content', label: 'News & Content', icon: Newspaper },
   { to: '/staff/enquiries', label: 'Website Enquiries', icon: Inbox },
@@ -36,14 +40,18 @@ const ADMIN_EXTRA: Item[] = [
   { to: '/staff/audit', label: 'Activity Log', icon: ScrollText },
 ];
 
-export default function PortalLayout({ area }: { area: 'customer' | 'staff' }) {
+const PROVIDER: Item[] = [{ to: PROVIDER_INBOX, label: 'Requests & Quotes', icon: ClipboardList }];
+
+export default function PortalLayout({ area }: { area: 'customer' | 'staff' | 'provider' }) {
   const { profile, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   const nav = useNavigate();
   useEffect(() => setOpen(false), [loc.pathname]);
 
-  const items = area === 'customer' ? CUSTOMER : CONSULTANT;
+  const transport = useTransportQuery<{ provider: boolean }>(TRANSPORT_ENABLED && area !== 'provider' ? transportPath('access') : '');
+  const items = area === 'customer' ? CUSTOMER : area === 'provider' ? PROVIDER : CONSULTANT;
+  const workspaceLabel = area === 'customer' ? 'Client Portal' : area === 'provider' ? 'Provider Workspace' : profile?.role === 'admin' ? 'Administrator' : 'Consultant Workspace';
   const admin = area === 'staff' && profile?.role === 'admin' ? ADMIN_EXTRA : [];
   const initials = (profile?.full_name || '?').split(' ').map((s) => s[0]).slice(0, 2).join('').toUpperCase();
   const doSignOut = async () => { await signOut(); nav('/'); };
@@ -53,7 +61,7 @@ export default function PortalLayout({ area }: { area: 'customer' | 'staff' }) {
       <div className="px-5 pb-4 pt-6">
         <Link to="/"><Logo variant="light" compact /></Link>
         <div className="mt-4 inline-flex rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-gold">
-          {area === 'customer' ? 'Client Portal' : profile?.role === 'admin' ? 'Administrator' : 'Consultant Workspace'}
+          {workspaceLabel}
         </div>
       </div>
       <nav className="scroll-thin flex-1 space-y-0.5 overflow-y-auto px-3">
@@ -70,6 +78,8 @@ export default function PortalLayout({ area }: { area: 'customer' | 'staff' }) {
         ))}
       </nav>
       <div className="space-y-1 border-t border-white/10 p-3">
+        {transport.data?.provider && <Link to={PROVIDER_INBOX} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-gold hover:bg-white/10"><Truck className="h-[18px] w-[18px]" />Provider workspace</Link>}
+        {area === 'provider' && <Link to={homeFor(profile)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white"><LayoutDashboard className="h-[18px] w-[18px]" />{profile?.role === 'customer' ? 'Client portal' : 'Staff workspace'}</Link>}
         <Link to="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white"><Globe className="h-[18px] w-[18px]" />Public website</Link>
         <button onClick={doSignOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white"><LogOut className="h-[18px] w-[18px]" />Sign out</button>
       </div>
@@ -97,11 +107,11 @@ export default function PortalLayout({ area }: { area: 'customer' | 'staff' }) {
           <div className="flex items-center gap-2">
             {area === 'customer' && <Link to="/portal/new" className="btn btn-gold btn-sm hidden sm:inline-flex"><FilePlus2 className="h-4 w-4" />Request Consultation</Link>}
             <NotificationBell />
-            <Link to={area === 'customer' ? '/portal/profile' : '/staff/profile'} className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 hover:bg-canvas">
+            <Link to={`${homeFor(profile)}/profile`} className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 hover:bg-canvas">
               <span className="grid h-8 w-8 place-items-center rounded-full bg-navy text-xs font-bold text-white">{initials}</span>
               <span className="hidden text-left md:block">
                 <span className="block text-sm font-semibold leading-tight text-ink">{profile?.full_name}</span>
-                <span className="block text-[11px] capitalize leading-tight text-muted">{profile?.role}{profile?.company_name && area === 'customer' ? ` · ${profile.company_name}` : ''}</span>
+                <span className="block text-[11px] capitalize leading-tight text-muted">{area === 'provider' ? 'Provider team' : profile?.role}{profile?.company_name && area === 'customer' ? ` · ${profile.company_name}` : ''}</span>
               </span>
             </Link>
           </div>

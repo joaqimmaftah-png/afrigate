@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Link, useParams } from 'react-router-dom';
+import { lazy, Suspense, type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Link, Outlet, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ServicesProvider } from './contexts/ServicesContext';
 import PublicLayout from './components/PublicLayout';
@@ -30,8 +31,24 @@ import Content from './pages/staff/Content';
 import Enquiries from './pages/staff/Enquiries';
 import Reports from './pages/staff/Reports';
 import Audit from './pages/staff/Audit';
+import { PageLoader } from './components/ui';
+import { TRANSPORT_ENABLED } from './lib/transport';
+import TransportProviderGate from './components/TransportProviderGate';
 
+const TransportClientLayout = lazy(() => import('./pages/transport/ClientDirectory').then(m => ({ default: m.TransportClientLayout })));
+const ProviderDirectory = lazy(() => import('./pages/transport/ClientDirectory').then(m => ({ default: m.ProviderDirectory })));
+const NewTransportRequest = lazy(() => import('./pages/transport/ClientDirectory').then(m => ({ default: m.NewTransportRequest })));
+const ClientTransportRequests = lazy(() => import('./pages/transport/ClientRequests').then(m => ({ default: m.ClientTransportRequests })));
+const ClientTransportRequest = lazy(() => import('./pages/transport/ClientRequests').then(m => ({ default: m.ClientTransportRequest })));
+const ProviderInbox = lazy(() => import('./pages/transport/ProviderWorkspace').then(m => ({ default: m.ProviderInbox })));
+const ProviderInvitation = lazy(() => import('./pages/transport/ProviderWorkspace').then(m => ({ default: m.ProviderInvitation })));
+const TransportProvidersAdmin = lazy(() => import('./pages/transport/ProviderAdmin').then(m => ({ default: m.TransportProvidersAdmin })));
+const NewTransportProvider = lazy(() => import('./pages/transport/ProviderAdmin').then(m => ({ default: m.NewTransportProvider })));
+const ManageTransportProvider = lazy(() => import('./pages/transport/ProviderAdmin').then(m => ({ default: m.ManageTransportProvider })));
 
+function TransportLoading({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<PageLoader label="Opening transport workspace…" />}>{children}</Suspense>;
+}
 
 function WorkspaceRoute({ mode }: { mode: 'customer' | 'staff' }) {
   const { id } = useParams();
@@ -82,7 +99,19 @@ export default function App() {
               <Route path="appointments" element={<Appointments mode="customer" />} />
               <Route path="documents" element={<Documents mode="customer" />} />
               <Route path="profile" element={<Profile />} />
+              {TRANSPORT_ENABLED && <Route path="transport" element={<TransportLoading><TransportClientLayout /></TransportLoading>}>
+                <Route index element={<ProviderDirectory />} />
+                <Route path="new" element={<NewTransportRequest />} />
+                <Route path="requests" element={<ClientTransportRequests />} />
+                <Route path="requests/:id" element={<ClientTransportRequest />} />
+              </Route>}
             </Route>
+
+            {TRANSPORT_ENABLED && <Route path="/provider" element={<ProtectedRoute><TransportProviderGate><TransportLoading><PortalLayout area="provider" /></TransportLoading></TransportProviderGate></ProtectedRoute>}>
+              <Route index element={<Navigate to="inbox" replace />} />
+              <Route path="inbox" element={<ProviderInbox />} />
+              <Route path="inbox/:providerId/:id" element={<ProviderInvitation />} />
+            </Route>}
 
             <Route path="/staff" element={<ProtectedRoute roles={['consultant', 'admin']}><PortalLayout area="staff" /></ProtectedRoute>}>
               <Route index element={<Overview />} />
@@ -97,6 +126,11 @@ export default function App() {
               <Route path="enquiries" element={<ProtectedRoute roles={['admin']}><Enquiries /></ProtectedRoute>} />
               <Route path="reports" element={<ProtectedRoute roles={['admin']}><Reports /></ProtectedRoute>} />
               <Route path="audit" element={<ProtectedRoute roles={['admin']}><Audit /></ProtectedRoute>} />
+              {TRANSPORT_ENABLED && <Route path="transport-providers" element={<ProtectedRoute roles={['admin']}><TransportLoading><Outlet /></TransportLoading></ProtectedRoute>}>
+                <Route index element={<TransportProvidersAdmin />} />
+                <Route path="new" element={<NewTransportProvider />} />
+                <Route path=":providerId" element={<ManageTransportProvider />} />
+              </Route>}
             </Route>
           </Routes>
         </BrowserRouter>

@@ -1,4 +1,4 @@
-import { supabase, cors, handleError, body, clean, getAuth, audit, notify, adminIds, HttpError, loadConsultation, isStaff, profileMap } from './_lib/util.js';
+import { supabase, cors, handleError, body, clean, getAuth, requireRole, audit, notify, adminIds, HttpError, loadConsultation, isStaff, profileMap } from './_lib/util.js';
 
 const BUCKET = 'consultation-docs';
 const MAX = 10 * 1024 * 1024;
@@ -20,6 +20,7 @@ export default async function handler(req, res) {
   const action = req.query.action;
   try {
     const { profile } = await getAuth(req);
+    requireRole(profile, ['customer', 'consultant', 'admin']);
 
     if (req.method === 'POST' && action === 'sign') {
       const b = body(req);
