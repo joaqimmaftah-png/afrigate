@@ -2,15 +2,26 @@ import assert from 'node:assert/strict';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 
-const ref = 'ufexjnqkppmcpjstabob';
-const url = process.env.STAGING_SUPABASE_URL;
-const key = process.env.STAGING_SERVICE_ROLE_KEY;
-const publicKey = process.env.STAGING_PUBLIC_KEY;
-const base = new URL(process.env.STAGING_PREVIEW_URL || 'https://invalid.example');
-assert.equal(url, `https://${ref}.supabase.co`, 'Refusing to run outside the isolated staging project');
-assert.match(base.hostname, /^afrigate-(?!git-main-)[a-z0-9-]+-africa-maarifa\.vercel\.app$/);
-assert.equal(base.protocol, 'https:');
+const stagingUrl = 'https://ufexjnqkppmcpjstabob.supabase.co';
+const inBuild = process.argv.includes('--vercel-build');
+const url = inBuild ? process.env.NEXT_PUBLIC_SUPABASE_URL : process.env.STAGING_SUPABASE_URL;
+const key = inBuild ? process.env.SUPABASE_SERVICE_ROLE_KEY : process.env.STAGING_SERVICE_ROLE_KEY;
+const publicKey = inBuild ? process.env.VITE_SUPABASE_ANON_KEY : process.env.STAGING_PUBLIC_KEY;
+const base = new URL(inBuild ? 'https://staging-build.invalid' : process.env.STAGING_PREVIEW_URL || 'https://invalid.example');
+assert.equal(url, stagingUrl, 'Refusing to run outside the isolated staging project');
+if (inBuild) {
+  assert.equal(process.env.VERCEL_ENV, 'preview', 'Refusing to run outside a Vercel preview');
+  assert.equal(process.env.VITE_SUPABASE_URL, stagingUrl, 'Preview browser must use the same staging project');
+  assert.equal(process.env.VITE_TRANSPORT_ENABLED, 'true', 'Preview client transport flag required');
+  assert.equal(process.env.TRANSPORT_ENABLED, 'true', 'Preview server transport flag required');
+} else {
+  assert.match(base.hostname, /^afrigate-(?!git-main-)[a-z0-9-]+-africa-maarifa\.vercel\.app$/);
+  assert.equal(base.protocol, 'https:');
+}
 assert.ok(key && publicKey, 'Staging credentials required');
+const handlers = inBuild ? new Map(await Promise.all(['public', 'account', 'admin', 'consultations', 'transport'].map(async name => [
+  `/api/${name}`, (await import(`../api/${name}.js`)).default,
+]))) : null;
 const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 const accounts = [];
 const run = randomUUID();
@@ -19,7 +30,26 @@ async function checked(result) {
   return result.data;
 }
 async function request(path, token, options = {}) {
-  const response = await fetch(new URL(path, base), {
+  const target = new URL(path, base);
+  if (handlers) {
+    const handler = handlers.get(target.pathname);
+    assert.ok(handler, `No build smoke handler for ${target.pathname}`);
+    let result;
+    await handler({
+      method: options.method || 'GET',
+      query: Object.fromEntries(target.searchParams),
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      body: options.body,
+    }, {
+      code: 200,
+      setHeader() {},
+      status(code) { this.code = code; return this; },
+      json(data) { result = { status: this.code, data }; },
+    });
+    assert.ok(result, 'Expected a JSON response from the handler');
+    return result;
+  }
+  const response = await fetch(target, {
     ...options,
     redirect: 'error',
     signal: AbortSignal.timeout(30000),
@@ -42,7 +72,7 @@ async function makeAccount(role) {
   if (role !== 'customer') await checked(await db.from('profiles').update({ role }).eq('id', user.id));
   const profile = await request('/api/account?action=me', token);
   assert.equal(profile.data.role, role);
-  return { id: user.id, token };
+  return { id: user.id, token, email };
 }
 try {
   // Both public and privileged data paths must target the same staging database.
@@ -70,7 +100,26 @@ try {
   await checked(await db.from('consultations').update({ consultant_id: consultant.id }).eq('id', rows[0].id));
   assert.equal((await request(path, consultant.token)).status, 200);
   assert.equal((await request(path, admin.token)).status, 200);
-  console.log('PASS: staging login, customer default role, admin-only user management, consultation creation and ownership/assignment checks.');
+  const track = email => request('/api/public?action=track', null, {
+    method: 'POST', body: JSON.stringify({ reference: created.data.reference, email }),
+  });
+  assert.equal((await track(customer.email)).status, 200);
+  assert.equal((await track(other.email)).status, 404);
+  console.log('PASS: staging password login, default customer role, admin-only management, consultation ownership/assignment and public lookup.');
+  if (inBuild) {
+    assert.equal((await request('/api/transport?action=directory')).status, 401);
+    const directory = await request('/api/transport?action=directory', customer.token);
+    assert.equal(directory.status, 200);
+    assert.ok(Array.isArray(directory.data.items));
+    const access = await request('/api/transport?action=access', customer.token);
+    assert.equal(access.status, 200);
+    assert.equal(access.data.provider, false);
+    assert.equal((await request('/api/transport?action=providers', customer.token)).status, 403);
+    assert.equal((await request('/api/transport?action=providers', admin.token)).status, 200);
+    const invalid = await request('/api/transport?action=create_request', customer.token, { method: 'POST', body: '{}' });
+    assert.equal(invalid.status, 400, 'PostgREST must return the transport write validation error');
+    console.log('PASS: transport handlers reach the staging read/write RPCs through real Auth and PostgREST.');
+  }
 } finally {
   // Delete only this run's synthetic records; never truncate/reset staging.
   const ids = accounts.map((a) => a.id);
@@ -78,6 +127,8 @@ try {
     const rows = await checked(await db.from('consultations').select('id').in('customer_id', ids));
     const consultationIds = rows.map((r) => r.id);
     if (consultationIds.length) {
+      const links = consultationIds.flatMap(id => [`/portal/requests/${id}`, `/staff/consultations/${id}`]);
+      await checked(await db.from('notifications').delete().in('link', links));
       for (const table of ['documents', 'appointments', 'messages', 'status_history']) {
         await checked(await db.from(table).delete().in('consultation_id', consultationIds));
       }

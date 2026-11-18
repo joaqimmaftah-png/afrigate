@@ -66,4 +66,10 @@ The script `scripts/staging-smoke.mjs` refuses a Supabase URL other than the kno
 - `STAGING_PUBLIC_KEY`: staging public/anon key.
 - `STAGING_SERVICE_ROLE_KEY`: staging service-role key (never the production key).
 
-Obtain both from **afrigate-staging**, not afrigate. Do not paste secret values in chat. The URL is pinned in the workflow. After merging this workflow and configuring secrets, run it manually against the latest preview URL to verify its first successful execution. Future successful preview deployment events then trigger it automatically. A missing secret fails the test; it never falls back to production. No live authenticated test has yet been executed, and no test accounts have yet been created by this script.
+Obtain both from **afrigate-staging**, not afrigate. Do not paste secret values in chat. The URL is pinned in the workflow. After configuring secrets, run it manually against the latest preview URL to verify its first successful execution. Future successful preview deployment events trigger it automatically. A missing secret fails the test; it never falls back to production.
+
+### Opt-in Vercel Preview build smoke
+
+To verify the real staging backend without moving credentials to GitHub, set `AFRIGATE_VERIFY_STAGING=true` on a trusted **Preview branch only**, alongside the two transport flags. `npm test` runs the smoke using the build's existing staging credentials and the actual API handlers in process. Before creating any fixtures it requires Vercel's `preview` environment, both transport flags, and the pinned staging reference in both the server and browser URLs. It tests password sign-in, consultation ownership/assignment and public lookup, and both transport RPC entry points. Synthetic accounts and consultation records are cleaned up at the end. Remove the opt-in after verification if it is not needed on future builds.
+
+This check does not send HTTP requests to the deployed Vercel functions and does not verify Vercel access protection, browser navigation, Google consent, or email delivery. Keep the Preview protected and run the deployed endpoint/browser review separately.
