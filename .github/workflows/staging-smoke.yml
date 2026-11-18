@@ -22,6 +22,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Check that staging credentials are configured
+        shell: bash
+        env:
+          STAGING_PUBLIC_KEY: ${{ secrets.STAGING_PUBLIC_KEY }}
+          STAGING_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SERVICE_ROLE_KEY }}
+        run: |
+          missing=()
+          [[ -n "$STAGING_PUBLIC_KEY" ]] || missing+=(STAGING_PUBLIC_KEY)
+          [[ -n "$STAGING_SERVICE_ROLE_KEY" ]] || missing+=(STAGING_SERVICE_ROLE_KEY)
+          if (( ${#missing[@]} )); then
+            printf '::error title=Missing staging Actions secrets::%s\n' "${missing[*]}"
+            exit 1
+          fi
       # Use reviewed test code from main, not arbitrary deployed PR code.
       - uses: actions/checkout@v4
         with:

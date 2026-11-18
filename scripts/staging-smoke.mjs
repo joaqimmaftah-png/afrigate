@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import { checkStagingBrowser, stagingPreviewOrigin } from './staging-browser.mjs';
 
 const stagingUrl = 'https://ufexjnqkppmcpjstabob.supabase.co';
 const inBuild = process.argv.includes('--vercel-build');
@@ -19,6 +20,8 @@ if (inBuild) {
   assert.equal(base.protocol, 'https:');
 }
 assert.ok(key && publicKey, 'Staging credentials required');
+const browserPreview = inBuild && process.env.AFRIGATE_STAGING_BROWSER_URL
+  ? stagingPreviewOrigin(process.env.AFRIGATE_STAGING_BROWSER_URL) : null;
 const handlers = inBuild ? new Map(await Promise.all(['public', 'account', 'admin', 'consultations', 'transport'].map(async name => [
   `/api/${name}`, (await import(`../api/${name}.js`)).default,
 ]))) : null;
@@ -72,7 +75,7 @@ async function makeAccount(role) {
   if (role !== 'customer') await checked(await db.from('profiles').update({ role }).eq('id', user.id));
   const profile = await request('/api/account?action=me', token);
   assert.equal(profile.data.role, role);
-  return { id: user.id, token, email };
+  return { id: user.id, token, email, ...(browserPreview ? { password } : {}) };
 }
 try {
   // Both public and privileged data paths must target the same staging database.
@@ -119,6 +122,9 @@ try {
     const invalid = await request('/api/transport?action=create_request', customer.token, { method: 'POST', body: '{}' });
     assert.equal(invalid.status, 400, 'PostgREST must return the transport write validation error');
     console.log('PASS: transport handlers reach the staging read/write RPCs through real Auth and PostgREST.');
+  }
+  if (browserPreview) {
+    await checkStagingBrowser({ preview: browserPreview, staging: url, customer, other, consultant, admin, consultation: created.data });
   }
 } finally {
   // Delete only this run's synthetic records; never truncate/reset staging.

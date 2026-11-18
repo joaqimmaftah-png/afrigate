@@ -25,14 +25,15 @@ jobs:
         run: node scripts/check-lint.mjs
       - name: Security and unit tests
         run: npm test
-      - name: Dependency audit
-        run: npm audit --audit-level=high
       - name: Typecheck and production build
         run: npm run build
         env:
           # Public dummy values for compile-only CI. Never connects to production.
           VITE_SUPABASE_URL: https://ci-example.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-public-placeholder
+      # Keep the audit blocking, but report build regressions even when it fails.
+      - name: Dependency audit
+        run: npm audit --audit-level=high
       - uses: actions/upload-artifact@v4
         with:
           name: frontend-${{ github.sha }}
